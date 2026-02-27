@@ -57,16 +57,17 @@ echo "$count TODO/FIXME items found"
 
 When a pattern proves reusable across missions, promote it to a persistent skill:
 
-1. **Create the directory and SKILL.md**:
+1. **Create the directory and SKILL.md** in the project's local skill directory:
    ```
-   ${CLAUDE_PLUGIN_ROOT}/skills/{name}/SKILL.md
+   .claude/skills/{name}/SKILL.md
    ```
+   This ensures the skill is project-specific and survives plugin updates (unlike `${CLAUDE_PLUGIN_ROOT}` which is a volatile cache directory).
 
 2. **Write YAML frontmatter** with `name` and `description` fields. The description should state *when* to use the skill so the system can match it to situations.
 
 3. **Teach HOW, not just WHAT** — the body should explain the reasoning, decision points, and steps in enough detail that an agent can follow the technique without prior context. Include examples and edge cases.
 
-4. **Record in tool-patterns.md** — append an entry to `.claude/squad/tool-patterns.md` noting the skill name, what it replaced (if it was promoted from an immediate tool), and when to invoke it.
+4. **Record in tool-patterns.md** — append an entry to `.claude/squad/knowledge/tool-patterns.md` noting the skill name, what it replaced (if it was promoted from an immediate tool), and when to invoke it.
 
 5. **Note**: persistent skills take effect next session. They will not be available in the current session.
 

@@ -4,7 +4,7 @@
 # Gate level: supervised | standard | autonomous
 default_gate: standard
 
-# Report and knowledge paths (relative to project root)
+# Report and knowledge paths (advisory — used by the squad command to locate files)
 reports_dir: .claude/squad/reports
 knowledge_dir: .claude/squad/knowledge
 

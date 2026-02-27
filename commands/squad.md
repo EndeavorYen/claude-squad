@@ -154,7 +154,7 @@ After bootstrap, continue with the rest of RECON.
 **Actions:**
 
 1. **Run verification commands.** Check if the project has configured verify commands:
-   - Look in `.claude/squad/config.json` for a `verify_commands` array
+   - Look in `.claude/squad/config.yaml` for a `verify_commands` array
    - If not configured, auto-detect based on project type:
      - Node.js: `pnpm lint && pnpm typecheck && pnpm test` (or npm/yarn equivalent)
      - Rust: `cargo check && cargo test && cargo clippy`
