@@ -1,0 +1,15 @@
+{
+  "description": "Squad mission lifecycle hooks — prevent premature termination during active missions",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Check if a squad mission is currently active (look for references to squad stages RECON, PLAN, EXECUTE, VERIFY, DEBRIEF, RETRO in recent context, or an active TeamCreate/team). If a mission IS active and not yet completed through DEBRIEF and RETRO stages, block stopping with: 'Squad mission still in progress at stage [X]. Complete remaining stages or explicitly abort before stopping.' If no mission is active or the mission has completed all stages including RETRO, approve stopping."
+          }
+        ]
+      }
+    ]
+  }
+}

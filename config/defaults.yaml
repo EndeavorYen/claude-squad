@@ -1,0 +1,28 @@
+# Squad Plugin — Default Configuration
+# Copied to .claude/squad/config.yaml on first run. Customize there.
+
+# Gate level: supervised | standard | autonomous
+default_gate: standard
+
+# Report and knowledge paths (relative to project root)
+reports_dir: .claude/squad/reports
+knowledge_dir: .claude/squad/knowledge
+
+# Evolution settings
+evolution:
+  retro_enabled: true          # Run RETRO stage after each mission
+  auto_create_tools: true      # Allow squad to create bash scripts in tools/
+  auto_create_skills: true     # Allow squad to create new SKILL.md files
+
+# Team constraints
+team:
+  max_members: 5               # Maximum concurrent squad members
+  default_model: inherit       # Model for squad members (inherit | sonnet | haiku | opus)
+  use_worktrees: true          # Isolate squad members in git worktrees
+
+# Verification commands (auto-detected from project if empty)
+# Uncomment and customize for your project:
+# verify_commands:
+#   - "pnpm lint"
+#   - "pnpm typecheck"
+#   - "pnpm test"
