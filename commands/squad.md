@@ -29,7 +29,7 @@ If the objective matches one of these, handle it directly and stop — do not ru
 
 - **`--status`** — Read the most recent report from `.claude/squad/reports/` and summarize current mission state. If a team is active, check TaskList and report teammate status.
 - **`--history`** — List all files in `.claude/squad/reports/` sorted by date, showing mission objectives and outcomes.
-- **`--knowledge`** — List all files in `.claude/squad/knowledge/` and summarize the knowledge base contents (patterns, pitfalls, playbooks).
+- **`--knowledge`** — List all files in `.claude/squad/knowledge/` and summarize the knowledge base contents (lessons, role patterns, tool patterns, metrics).
 
 ---
 

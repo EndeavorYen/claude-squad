@@ -12,7 +12,7 @@ When the squad encounters a repetitive manual action — something done 3+ times
 | Type | Location | When to use | Takes effect |
 |------|----------|-------------|--------------|
 | **Immediate tool** | `.claude/squad/tools/{name}.sh` | Default choice. Automates a repeated action within the current mission. | Immediately |
-| **Persistent skill** | `${CLAUDE_PLUGIN_ROOT}/skills/{name}/SKILL.md` | Useful across 2+ missions. Teaches a reusable technique or workflow. | Next session |
+| **Persistent skill** | `.claude/skills/{name}/SKILL.md` | Useful across 2+ missions. Teaches a reusable technique or workflow. | Next session |
 | **Hook** | Entry in `hooks.json` | Needs to run automatically at a pipeline stage (e.g., post-verify). | Next session |
 
 **Default to immediate.** Only create a persistent skill if the pattern has proven useful across at least 2 separate missions. Only create a hook if the action must run automatically without being invoked.
@@ -37,7 +37,7 @@ Write a bash script to `.claude/squad/tools/{name}.sh`:
    chmod +x .claude/squad/tools/{name}.sh
    ```
 
-5. **Record in tool-patterns.md** — append an entry to `.claude/squad/tool-patterns.md` documenting the tool name, purpose, and usage example so future sessions can discover it.
+5. **Record in tool-patterns.md** — append an entry to `.claude/squad/knowledge/tool-patterns.md` documenting the tool name, purpose, and usage example so future sessions can discover it.
 
 ### Example
 
