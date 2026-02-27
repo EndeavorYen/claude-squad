@@ -1,0 +1,8 @@
+{
+  "name": "squad",
+  "description": "Self-evolving agent team orchestrator. Dispatch a squad to plan, execute, verify, and deliver — with configurable gates and persistent knowledge.",
+  "author": {
+    "name": "Rexiano",
+    "email": "noreply@rexiano.dev"
+  }
+}
