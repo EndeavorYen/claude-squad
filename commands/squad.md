@@ -43,9 +43,10 @@ If the objective matches one of these, handle it directly and stop — do not ru
 2. Read `docs/DESIGN.md`, `docs/ROADMAP.md`, or equivalent architecture/planning documents if they exist. Use Glob to find them if not in expected locations.
 3. Run `git log --oneline -30` to understand recent development momentum and active areas.
 4. Read the knowledge base at `.claude/squad/knowledge/`:
-   - `patterns.md` — proven approaches from past missions
-   - `pitfalls.md` — known failure modes to avoid
-   - `playbooks/*.md` — reusable tactical plans for common scenarios
+   - `lessons.md` — accumulated insights from past missions
+   - `role-patterns.md` — proven persona designs for squad members
+   - `tool-patterns.md` — effective tools and scripts created by the squad
+   - `metrics.md` — performance tracking across missions
 5. If `.claude/squad/knowledge/` does not exist, this is a first run — proceed to Bootstrap (Section 1.5) before continuing.
 6. Identify relevant files for the objective using Grep and Glob. Build a mental map of the codebase areas that will be touched.
 
@@ -57,14 +58,15 @@ If `.claude/squad/` does not exist, create the knowledge base directory structur
 
 ```
 .claude/squad/
+  config.yaml        — copy from ${CLAUDE_PLUGIN_ROOT}/config/defaults.yaml
   knowledge/
-    patterns.md      — "# Patterns\n\nProven approaches from past missions.\n"
-    pitfalls.md      — "# Pitfalls\n\nKnown failure modes to avoid.\n"
-    playbooks/       — (empty directory, created with a .gitkeep)
-  reports/           — (empty directory, created with a .gitkeep)
+    lessons.md       — copy from ${CLAUDE_PLUGIN_ROOT}/config/bootstrap/lessons.md
+    role-patterns.md — copy from ${CLAUDE_PLUGIN_ROOT}/config/bootstrap/role-patterns.md
+    tool-patterns.md — copy from ${CLAUDE_PLUGIN_ROOT}/config/bootstrap/tool-patterns.md
+    metrics.md       — copy from ${CLAUDE_PLUGIN_ROOT}/config/bootstrap/metrics.md
+  tools/             — (empty directory for runtime-created scripts)
+  reports/           — (empty directory for mission reports)
 ```
-
-If `${CLAUDE_PLUGIN_ROOT}/config/bootstrap/` contains template files, copy their contents instead of using the defaults above.
 
 After bootstrap, continue with the rest of RECON.
 
@@ -217,9 +219,10 @@ After bootstrap, continue with the rest of RECON.
    - What was surprising (unexpected findings, edge cases, codebase quirks)
 
 2. **Update the knowledge base.**
-   - Append new patterns to `.claude/squad/knowledge/patterns.md`
-   - Append new pitfalls to `.claude/squad/knowledge/pitfalls.md`
-   - If a reusable tactical sequence emerged, write a new playbook to `.claude/squad/knowledge/playbooks/<name>.md`
+   - Append lessons learned to `.claude/squad/knowledge/lessons.md`
+   - Record effective role designs in `.claude/squad/knowledge/role-patterns.md`
+   - Record tools created or identified in `.claude/squad/knowledge/tool-patterns.md`
+   - Append mission metrics to `.claude/squad/knowledge/metrics.md`
 
 3. **Invoke the `tool-forging` skill** if gaps were identified:
    - If the mission revealed a need for a custom tool, hook, or agent configuration that doesn't exist yet
