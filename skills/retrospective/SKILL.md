@@ -35,9 +35,17 @@ Analyze the mission across four dimensions:
 ### 4. Process (流程)
 
 - Was the gate level appropriate? Did pauses slow things down unnecessarily, or did insufficient pauses miss issues?
-- Did the 6-stage pipeline flow smoothly? Were any stages skipped, repeated, or felt unnecessary?
+- Did the 7-stage pipeline flow smoothly? Were any stages skipped, repeated, or felt unnecessary?
 - Was communication between squad members and lead sufficient? Too much? Too little?
 - Was squad size appropriate? Too many idle members or too few causing bottlenecks?
+
+### 5. Integration (整合)
+
+- Were the isolation strategies appropriate? Did worktree agents need to be in the main workspace instead, or vice versa?
+- Did the conflict risk assessment in PLAN accurately predict actual conflicts in INTEGRATE?
+- Were interface contracts sufficient? Did agents still produce incompatible changes?
+- Was the merge order correct? Did any merge fail because of ordering issues?
+- Did convoy mode (if used) effectively reduce context pressure?
 
 ## Knowledge Base Updates
 
@@ -96,8 +104,12 @@ Append mission metrics:
 - Tasks: {completed}/{total}
 - Verification: {pass|fail}
 - Gate: {level}
-- Waves: {N}
-- Blockers encountered: {count}
+- Deploy mode: {convoy|full}
+- Isolation: worktree:{N}, boundary:{N}, none:{N}
+- Integration conflicts: {count}
+- Auto-fixed issues: {count}
+- Context compaction events: {count}
+- Baseline regression: {yes|no}
 - New tools created: {count}
 - Role patterns recorded: {count}
 ```
@@ -113,6 +125,9 @@ After updating the knowledge base, check these thresholds:
 | Role pattern used successfully | 3+ missions | Mark as "stable" in role-patterns.md |
 | Verification gap caught late | 1 occurrence | Add to verify_commands in config |
 | Gate level consistently overridden | 3+ missions | Suggest changing default_gate in config |
+| Lesson not referenced for 10+ missions | 10 missions | Mark as `[archived]` and move to bottom of lessons.md |
+| Role pattern fails 3 consecutive times | 3 failures | Mark as `[deprecated]` with failure reason |
+| Tool unused for 5+ missions | 5 missions | Suggest removal or archival in RETRO output |
 
 ## Output
 
