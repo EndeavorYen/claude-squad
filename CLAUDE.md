@@ -51,7 +51,7 @@ RECON → PLAN → EXECUTE → INTEGRATE → VERIFY → DEBRIEF → RETRO
 ```
 claude-squad/
 ├── .claude-plugin/
-│   ├── plugin.json            ← name: "squad", version: "0.2.0"
+│   ├── plugin.json            ← name: "squad", version: "0.3.0"
 │   └── marketplace.json       ← 本地 marketplace 定義（安裝用）
 ├── commands/
 │   └── squad.md               ← /squad 主指令（完整 7-stage pipeline 邏輯）
@@ -124,7 +124,7 @@ claude-squad/
 - **Single source of truth:** `.claude-plugin/plugin.json` 的 `version` 欄位
 - 遵循 semver：breaking change → major, 新功能 → minor, 修復 → patch
 - 變更紀錄在 `CHANGELOG.md`（遵循 [Keep a Changelog](https://keepachangelog.com/) 格式）
-- 目前版本：`0.2.0`
+- 目前版本：`0.3.0`
 
 **自動升版（推薦）：安裝 post-commit hook**
 

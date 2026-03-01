@@ -6,13 +6,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versioning follo
 
 ## [Unreleased]
 
-### Fixed
-
-- Startup health check and fallback for stale agent deployment
+## [0.3.0] - 2026-03-01
 
 ### Added
 
-- Marketplace configuration for squad plugins
+- add auto-versioning with conventional commits
+- add marketplace configuration for squad plugins
+
+### Fixed
+
+- add startup health check and fallback for stale agent deployment
+
 
 ## [0.2.0] - 2026-03-01
 
