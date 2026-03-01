@@ -36,6 +36,20 @@ Structure each persona with these mandatory sections:
 **專案慣例（必遵守）：**
 {Key conventions extracted from CLAUDE.md — only include those relevant to this member's work. Be specific: quote actual rules, don't just say "follow conventions"}
 
+**（Worktree Agent 必看）作業路徑：**
+你的 worktree 絕對路徑：`{absolute_worktree_path}`
+⚠️ 你以 in-process 模式執行，CWD 是主 repo，**不是** worktree。所有任務相關的 Read/Edit/Write 操作必須加上 worktree 前綴：
+- 讀取：`{absolute_worktree_path}/src/your-file.ts`
+- 修改：`{absolute_worktree_path}/src/your-file.ts`
+- 新建：`{absolute_worktree_path}/src/new-file.ts`
+以下路徑例外，保留主 repo 相對路徑（Lead 監控用，不加前綴）：
+- `.claude/squad/outputs/{你的代號}/contract-ack.md`
+- `.claude/squad/outputs/{你的代號}/manifest.md`
+- `.claude/squad/outputs/{你的代號}/interface-changes.md`
+- `.claude/squad/outputs/{你的代號}/.complete`
+
+注意：此區塊僅適用於 worktree 隔離策略的 agent。File-boundary / none 策略的 agent 不包含此區塊。
+
 **作業規範：**
 1. **第一件事（立即執行，不做其他事）：**
    在 `.claude/squad/outputs/{你的代號}/contract-ack.md` 寫下：
@@ -46,7 +60,7 @@ Structure each persona with these mandatory sections:
    ⚠️ **這個檔案是你的存活證明。** Lead 會在你啟動後 {startup_timeout_minutes} 分鐘內檢查此檔案。
    如果此檔案不存在，Lead 會認為你已死亡並啟動替補。
    所以：先寫 contract-ack.md，再讀 CLAUDE.md，再開始作業。
-   （注意：forging 時請將 {startup_timeout_minutes} 替換為實際的 config 值，預設為 3）
+   （注意：forging 時請將 {startup_timeout_minutes} 替換為實際的 config 值，預設為 3；同時將所有出現的 {你的代號} 替換為實際的 callsign，例如 alpha、bravo）
 2. 讀 CLAUDE.md 了解完整專案慣例
 3. 嚴格按照分配的 task 範圍作業，不越界
 4. 完成每個 task 後透過 SendMessage 向 lead 回報完成狀態與變更摘要
@@ -61,7 +75,7 @@ Structure each persona with these mandatory sections:
 - 不刪除現有的測試或功能
 - 不重新建立已存在的 store / config / type 定義檔案
 - 修改共享檔案時只能 additive（新增），不可刪除或修改現有結構
-- 建立 worktree 時必須從 HEAD 分支
+- 不自行建立 git worktree（worktree 由 Lead 在部署前統一建立）
 - 完成後必須建立 outputs 目錄和 manifest.md / .complete
 
 **輸出規範：**
@@ -138,7 +152,8 @@ Before finalizing each persona, verify:
 - [ ] If agent touches shared files, interface contract is included with concrete field names
 - [ ] Output specification (manifest.md with artifact types, interface-changes.md, .complete) is included
 - [ ] Each task requires at least one artifact — no artifact-less completions
-- [ ] Worktree agents are instructed to branch from HEAD
+- [ ] For worktree agents: `git worktree add .claude/worktrees/agent-{callsign} HEAD` was run by CoS and confirmed to exist on disk
+- [ ] For worktree agents: `{absolute_worktree_path}` in persona is replaced with the actual recorded absolute path (forward-slash format), not the raw placeholder
 
 ## Naming Convention
 

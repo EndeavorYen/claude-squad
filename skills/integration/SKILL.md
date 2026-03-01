@@ -83,9 +83,14 @@ description: Use during the INTEGRATE stage after all agents complete execution.
 
 對每個 worktree agent（按 wave 順序）：
 
+0. **確認 worktree 實際存在**：檢查 `.claude/worktrees/agent-{callsign}/` 是否存在。
+   - 若目錄不存在：表示 EXECUTE 階段中 `git worktree add` 失敗並已降級為 `file-boundary`，但降級狀態未被追蹤到此。**將此 agent 視為 file-boundary agent 處理**（執行下方 File-Boundary 合併流程）。
+   - 若目錄存在：繼續以下 worktree 合併步驟。
+
 1. **讀取 manifest.md** 取得檔案清單和 artifact 類型
 2. **新建的檔案**（不在主工作區存在的）：
-   - 直接從 worktree 複製到主工作區
+   - 來源路徑：`.claude/worktrees/agent-{callsign}/{relative_file_path}`（相對路徑來自 manifest.md）
+   - 直接複製到主工作區的對應相對路徑
    - 建立目標目錄（如果不存在）
 3. **修改的獨佔檔案**（只有此 agent 觸及的）：
    - 直接從 worktree 複製覆蓋主工作區版本

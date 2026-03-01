@@ -138,11 +138,17 @@ After bootstrap, continue with the rest of RECON.
 
 ### Full Deployment Mode (squad size ≤ 4, ≤ 2 waves)
 
-3a. **Spawn all teammates.** For each agent in the battle plan, use the `Task` tool to spawn a teammate:
+3a. **Pre-create worktrees** (before spawning any agent). For each agent with isolation strategy `worktree`:
+   - Check if `.claude/worktrees/agent-{callsign}` already exists (from a failed prior run). If so, run `git worktree remove --force .claude/worktrees/agent-{callsign}` or `rm -rf .claude/worktrees/agent-{callsign}` then `git worktree prune`.
+   - Run: `git worktree add .claude/worktrees/agent-{callsign} HEAD`
+   - Record the absolute path with **forward slashes** regardless of OS (e.g., `D:/Code/project/.claude/worktrees/agent-{callsign}`). On Windows, replace any backslashes in the recorded path before injecting it into the persona.
+   - If the command fails, log the error and downgrade this agent's isolation to `file-boundary`
+
+**Spawn all teammates.** For each agent in the battle plan, use the `Task` tool to spawn a teammate:
    - Set `team_name` to the team created above
    - Set `name` to the agent's callsign (lowercase)
    - Use the forged persona from the `role-forging` skill as the agent's prompt
-   - If the agent's isolation strategy is `worktree`: instruct them to create a worktree from HEAD
+   - If the agent's isolation strategy is `worktree`: replace `{absolute_worktree_path}` in the persona with the pre-created absolute path recorded above
    - If `file-boundary`: list their exclusive files in the prompt
    - If `none`: no special isolation instructions
 
@@ -159,7 +165,12 @@ After bootstrap, continue with the rest of RECON.
 
 ### Convoy Mode (squad size ≥ 5 or 3+ waves)
 
-3a. **Deploy Wave 1 agents only.** Spawn only the agents assigned to Wave 1 tasks. Create their tasks.
+3a. **Pre-create Wave 1 worktrees.** For each Wave 1 agent with isolation strategy `worktree`:
+   - Check if `.claude/worktrees/agent-{callsign}` already exists; if so, remove it (`git worktree remove --force` or `rm -rf` then `git worktree prune`) before proceeding.
+   - Run: `git worktree add .claude/worktrees/agent-{callsign} HEAD`
+   - Record the absolute path with **forward slashes** (on Windows, replace backslashes). If the command fails, downgrade to `file-boundary`.
+
+**Deploy Wave 1 agents only.** Spawn only the agents assigned to Wave 1 tasks. Create their tasks. Replace `{absolute_worktree_path}` in each worktree agent's persona with their pre-created path.
 
 3b. **Startup health check for Wave 1.** Same as Full Deployment step 3c: check `contract-ack.md` within `startup_timeout_minutes`.
 
@@ -167,13 +178,21 @@ After bootstrap, continue with the rest of RECON.
 
 3d. **Collect Wave 1 outputs.** Read each Wave 1 agent's `manifest.md` and `interface-changes.md`. If Wave 2 agents need interface change information from Wave 1 (e.g., new types or exports), include this in Wave 2 personas.
 
-3e. **Deploy Wave 2 agents.** Spawn Wave 2 agents with updated personas that include Wave 1's interface changes. Create their tasks.
+3e. **Pre-create Wave 2 worktrees.** For each Wave 2 agent with isolation strategy `worktree`:
+   - Pre-check for stale directories (same pattern as step 3a), then run `git worktree add .claude/worktrees/agent-{callsign} HEAD`.
+   - Record the absolute path with forward slashes. Downgrade to `file-boundary` on failure.
+
+**Deploy Wave 2 agents.** Spawn Wave 2 agents with updated personas that include Wave 1's interface changes. Replace `{absolute_worktree_path}` in each worktree agent's persona. Create their tasks.
 
 3f. **Startup health check for Wave 2.** Same check.
 
 3g. **Monitor Wave 2.** Wait for completion.
 
-3h. **Repeat for additional waves** if any.
+3h. **Repeat for additional waves** if any. For each subsequent wave:
+   - Pre-create worktrees for that wave's worktree agents (same pre-check and `git worktree add` pattern as steps 3a/3e)
+   - Deploy agents with already-substituted personas (absolute path replaced, not raw template)
+   - Run startup health check (check `contract-ack.md` within `startup_timeout_minutes`)
+   - Monitor to completion
 
 ### Stale Agent Recovery (CRITICAL)
 
@@ -187,7 +206,8 @@ Read the following from `.claude/squad/config.yaml` (or defaults):
 
 1. **Diagnose**: Report to the user exactly which agents are stale and which are healthy (list callsigns with status). Healthy agents (those with `contract-ack.md`) continue working normally — do not interrupt them.
 2. **Attempt respawn** (if `respawn_enabled` is true, up to `max_respawns_per_task` times per stale agent):
-   - For each stale agent only, spawn a replacement using the same forged persona.
+   - For each stale agent only, spawn a replacement using the **already-substituted persona** — the version where `{absolute_worktree_path}` was already replaced with the actual path recorded in step 3a. Do NOT use the raw persona template with the placeholder literal.
+   - The pre-created worktree on disk is still valid; no need to re-run `git worktree add`.
    - Wait `startup_timeout_minutes`, check `contract-ack.md` again.
 3. **If respawn fails for any agent**:
    - If `fallback_to_direct` is true:
@@ -218,7 +238,7 @@ If `TaskOutput` times out (after `agent_timeout_minutes` from config, default: 3
    - No outputs at all → startup failure (see Stale Agent Recovery above)
 2. For partial completion (if `respawn_enabled` from config is true):
    a. Read `manifest.md` (if exists) to identify completed tasks
-   b. Create respawn persona: original persona + "Tasks #X, #Y already completed by predecessor"
+   b. Create respawn persona: the **already-substituted persona** (with actual absolute worktree path, not the raw `{absolute_worktree_path}` placeholder) + "Tasks #X, #Y already completed by predecessor"
    c. Spawn replacement agent to continue remaining tasks
    d. Log respawn event to `.claude/squad/state/respawn-log.md`
 3. Limits: `max_respawns_per_task` from config (default: 1). If respawn limit reached:
