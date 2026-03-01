@@ -39,8 +39,11 @@ Write to `.claude/squad/reports/YYYY-MM-DD-{mission-slug}.md`:
 ### EXECUTE
 {How execution went — any blockers hit, pivots made, communication between members}
 
+### INTEGRATE
+{How integration went — worktrees merged, conflicts found and resolved, cleanup status}
+
 ### VERIFY
-{Verification results, any failures found and how they were fixed}
+{Verification results — baseline delta analysis, any new failures found and how they were fixed}
 
 ## Changes Made
 {Group files by purpose}
@@ -82,7 +85,7 @@ When the user asks `/squad --status`, present:
 ```
 ── Squad Status ─────────────────────
 Mission: {objective}
-Stage: {current stage} ({N}/{6} stages)
+Stage: {current stage} ({N}/{7} stages)
 Gate: {level}
 
 Tasks:
