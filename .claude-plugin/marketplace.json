@@ -1,0 +1,14 @@
+{
+  "name": "squad-marketplace",
+  "owner": {
+    "name": "Rexiano",
+    "email": "noreply@rexiano.dev"
+  },
+  "plugins": [
+    {
+      "name": "squad",
+      "source": "./.",
+      "description": "Self-evolving agent team orchestrator. Dispatch a squad to plan, execute, verify, and deliver."
+    }
+  ]
+}
