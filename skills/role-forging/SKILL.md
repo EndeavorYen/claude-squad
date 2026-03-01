@@ -38,10 +38,17 @@ Structure each persona with these mandatory sections:
 
 **作業規範：**
 1. 開始前先讀 CLAUDE.md 了解完整專案慣例
-2. 嚴格按照分配的 task 範圍作業，不越界
-3. 完成每個 task 後透過 SendMessage 向 lead 回報完成狀態與變更摘要
-4. 如果遇到阻塞或不確定的決策，立即向 lead 回報而非自行猜測
-5. 完成所有 tasks 後回報完成並列出所有變更檔案
+2. **開工確認（必須在寫任何程式碼之前）：**
+   在 `.claude/squad/outputs/{你的代號}/contract-ack.md` 寫下：
+   - 你理解的任務範圍（列出 task 編號和簡述）
+   - 你會修改的檔案清單
+   - 共享檔案的存取權限確認（read-only / additive）
+   - 任何你認為不明確需要確認的事項
+   寫完此檔案後才開始作業。這是你與團隊的契約確認。
+3. 嚴格按照分配的 task 範圍作業，不越界
+4. 完成每個 task 後透過 SendMessage 向 lead 回報完成狀態與變更摘要
+5. 如果遇到阻塞或不確定的決策，立即向 lead 回報而非自行猜測
+6. 完成所有 tasks 後回報完成並列出所有變更檔案
 
 **禁止事項：**
 - 不修改不在你任務範圍內的檔案
@@ -49,7 +56,69 @@ Structure each persona with these mandatory sections:
 - 不做超出任務要求的「改善」或「重構」
 - 不安裝新的 dependencies 除非任務明確要求
 - 不刪除現有的測試或功能
+- 不重新建立已存在的 store / config / type 定義檔案
+- 修改共享檔案時只能 additive（新增），不可刪除或修改現有結構
+- 建立 worktree 時必須從 HEAD 分支
+- 完成後必須建立 outputs 目錄和 manifest.md / .complete
+
+**輸出規範：**
+完成所有 tasks 後，在 `.claude/squad/outputs/{你的代號}/` 建立以下檔案：
+
+1. `manifest.md` — 任務完成狀態、artifact 清單、檔案清單：
+   ```
+   # Agent Output: {你的代號}
+   Status: complete
+   Completed tasks: #N, #M
+
+   ## Artifacts
+   - [code] {path} — {purpose}
+   - [test] {path} — {N 個測試}
+   - [spec] interface-changes.md — {描述}
+   - [doc] {path} — {描述}
+
+   ## New Files
+   - {path} — {purpose}
+
+   ## Modified Files
+   - {path} — {what changed}
+   ```
+
+   Artifact 類型標記：`[code]` `[test]` `[spec]` `[doc]` `[config]`
+   每個完成的 task 必須至少有一個 artifact。沒有 artifact 的 task 不算完成。
+
+2. `interface-changes.md` — 如果你修改了共享檔案，記錄結構性變更：
+   ```
+   # Interface Changes: {你的代號}
+
+   ## {shared file path}
+   ### New types
+   - {type name and definition}
+   ### New fields
+   - {field}: {type} (default: {value})
+   ### New exports
+   - {export statement}
+   ```
+
+3. `.complete` — 空檔案，作為完成標記
 ```
+
+### 3.5 Shared File Contracts
+
+If an agent will touch shared files (identified in Step 2.5 of mission-planning), add this mandatory section to the persona:
+
+```
+**相關共享檔案契約：**（若此 agent 會觸及共享檔案，必須包含）
+{file path}:
+  現有介面：{key fields, types, exports — 不需完整內容，只列重要結構}
+  你的權限：{read-only | additive}
+  你需要新增：{具體的 fields/types/exports}
+  規則：
+  - 不可重新建立此檔案
+  - 不可修改或刪除現有欄位/exports
+  - 修改後必須在 interface-changes.md 完整記錄
+```
+
+This contract ensures agents know exactly what they can and cannot change in shared files, preventing the "simplified store rebuild" problem where an agent recreates a file from scratch instead of adding to it.
 
 ### 4. Quality Checklist
 
@@ -62,6 +131,11 @@ Before finalizing each persona, verify:
 - [ ] Communication protocol is **explicit** — when and how to report
 - [ ] Boundaries are **firm** — what NOT to do is as important as what to do
 - [ ] Persona prompt is **self-contained** — the agent should not need to ask "what project is this?"
+- [ ] Contract acknowledgment (contract-ack.md) step is included as first action
+- [ ] If agent touches shared files, interface contract is included with concrete field names
+- [ ] Output specification (manifest.md with artifact types, interface-changes.md, .complete) is included
+- [ ] Each task requires at least one artifact — no artifact-less completions
+- [ ] Worktree agents are instructed to branch from HEAD
 
 ## Naming Convention
 
