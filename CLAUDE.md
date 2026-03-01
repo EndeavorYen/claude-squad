@@ -70,6 +70,13 @@ claude-squad/
 │       ├── metrics.md
 │       ├── role-patterns.md
 │       └── tool-patterns.md
+├── scripts/
+│   ├── bump-version.sh        ← 自動版號管理（auto/patch/minor/major）
+│   ├── update-changelog.py    ← CHANGELOG 產生器（從 conventional commits）
+│   ├── install-hooks.sh       ← 安裝 git hooks
+│   └── hooks/
+│       └── post-commit        ← post-commit hook（feat:/fix: → auto bump）
+├── CHANGELOG.md               ← 版本變更紀錄
 └── hooks/
     └── hooks.json             ← Stop hook — 防止任務進行中被中斷
 ```
@@ -114,9 +121,38 @@ claude-squad/
 
 ### 版本管理
 
-- 版本號在 `.claude-plugin/plugin.json` 的 `version` 欄位
+- **Single source of truth:** `.claude-plugin/plugin.json` 的 `version` 欄位
 - 遵循 semver：breaking change → major, 新功能 → minor, 修復 → patch
+- 變更紀錄在 `CHANGELOG.md`（遵循 [Keep a Changelog](https://keepachangelog.com/) 格式）
 - 目前版本：`0.2.0`
+
+**自動升版（推薦）：安裝 post-commit hook**
+
+```bash
+# 一次性安裝
+bash scripts/install-hooks.sh
+
+# 之後每次 feat:/fix: commit 都會自動 bump + tag
+git commit -m "feat: add dark mode"
+# → 自動產生 "chore: release v0.3.0" commit + v0.3.0 tag
+```
+
+**手動升版：**
+
+```bash
+./scripts/bump-version.sh auto              # 預覽：只更新檔案
+./scripts/bump-version.sh auto --release    # 更新 + commit + tag
+./scripts/bump-version.sh patch|minor|major # 指定 bump 類型
+```
+
+**Conventional commit → 自動版號對應：**
+
+| Commit prefix | Bump | 範例 |
+|--------------|------|------|
+| `feat:` | minor | `feat: add convoy deployment` |
+| `fix:` | patch | `fix: stale agent fallback` |
+| `BREAKING CHANGE` 或 `feat!:` | major | `feat!: redesign pipeline` |
+| `docs:`, `chore:`, `ci:` | 不升版 | `docs: update CLAUDE.md` |
 
 ## 關鍵設計決策
 
