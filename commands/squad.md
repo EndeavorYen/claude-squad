@@ -80,6 +80,8 @@ If `.claude/squad/` does not exist, create the knowledge base directory structur
     metrics.md       — copy from ${CLAUDE_PLUGIN_ROOT}/config/bootstrap/metrics.md
   tools/             — (empty directory for runtime-created scripts)
   reports/           — (empty directory for mission reports)
+  state/             — (empty directory for runtime state: baseline, respawn log)
+  outputs/           — (empty directory for agent outputs during EXECUTE)
 ```
 
 After bootstrap, continue with the rest of RECON.
@@ -146,21 +148,55 @@ After bootstrap, continue with the rest of RECON.
 
 3b. **Create tasks.** Use `TaskCreate` for all tasks with dependencies.
 
-3c. **Monitor execution.** Read messages, resolve blockers, track progress. Also periodically check `.claude/squad/outputs/{callsign}/.complete` markers.
+3c. **Startup health check (CRITICAL — do not skip).** Read `startup_timeout_minutes` from the project's `.claude/squad/config.yaml` (default: 3). Within that timeout after spawning:
+   - For EACH agent, check if `.claude/squad/outputs/{callsign}/contract-ack.md` exists (use Glob or ls).
+   - An agent that has NOT written `contract-ack.md` within the timeout is considered **stale** (startup failure).
+   - This is the most common failure mode: agents register in the team config but never begin execution.
+   - If ANY agent is stale, immediately proceed to the **Stale Agent Recovery** section below.
+   - If ALL agents have written `contract-ack.md`, proceed to monitoring.
+
+3d. **Monitor execution.** Read messages, resolve blockers, track progress. Also periodically check `.claude/squad/outputs/{callsign}/.complete` markers.
 
 ### Convoy Mode (squad size ≥ 5 or 3+ waves)
 
 3a. **Deploy Wave 1 agents only.** Spawn only the agents assigned to Wave 1 tasks. Create their tasks.
 
-3b. **Monitor Wave 1.** Wait for all Wave 1 agents to complete (check `.complete` markers).
+3b. **Startup health check for Wave 1.** Same as Full Deployment step 3c: check `contract-ack.md` within `startup_timeout_minutes`.
 
-3c. **Collect Wave 1 outputs.** Read each Wave 1 agent's `manifest.md` and `interface-changes.md`. If Wave 2 agents need interface change information from Wave 1 (e.g., new types or exports), include this in Wave 2 personas.
+3c. **Monitor Wave 1.** Wait for all Wave 1 agents to complete (check `.complete` markers).
 
-3d. **Deploy Wave 2 agents.** Spawn Wave 2 agents with updated personas that include Wave 1's interface changes. Create their tasks.
+3d. **Collect Wave 1 outputs.** Read each Wave 1 agent's `manifest.md` and `interface-changes.md`. If Wave 2 agents need interface change information from Wave 1 (e.g., new types or exports), include this in Wave 2 personas.
 
-3e. **Monitor Wave 2.** Wait for completion.
+3e. **Deploy Wave 2 agents.** Spawn Wave 2 agents with updated personas that include Wave 1's interface changes. Create their tasks.
 
-3f. **Repeat for additional waves** if any.
+3f. **Startup health check for Wave 2.** Same check.
+
+3g. **Monitor Wave 2.** Wait for completion.
+
+3h. **Repeat for additional waves** if any.
+
+### Stale Agent Recovery (CRITICAL)
+
+If agents fail the startup health check (no `contract-ack.md` within `startup_timeout_minutes`), this means the agent process never started. **Do not wait for `agent_timeout_minutes`.** Recovery sequence:
+
+Read the following from `.claude/squad/config.yaml` (or defaults):
+- `resilience.respawn_enabled` (default: true)
+- `resilience.max_respawns_per_task` (default: 1)
+- `resilience.fallback_to_direct` (default: true)
+- `resilience.startup_timeout_minutes` (default: 3)
+
+1. **Diagnose**: Report to the user exactly which agents are stale and which are healthy (list callsigns with status). Healthy agents (those with `contract-ack.md`) continue working normally — do not interrupt them.
+2. **Attempt respawn** (if `respawn_enabled` is true, up to `max_respawns_per_task` times per stale agent):
+   - For each stale agent only, spawn a replacement using the same forged persona.
+   - Wait `startup_timeout_minutes`, check `contract-ack.md` again.
+3. **If respawn fails for any agent**:
+   - If `fallback_to_direct` is true:
+     - Announce to the user: "Agent {callsign} deployment failed. Falling back to direct execution for their tasks."
+     - The Chief of Staff executes only the failed agents' tasks, in dependency order. Healthy agents continue their work normally.
+   - If `fallback_to_direct` is false:
+     - Pause and ask the user how to proceed.
+   - Log the failure to `.claude/squad/state/respawn-log.md` with agent names, timestamps, and which tasks were absorbed by the Chief of Staff.
+4. **Do NOT waste context** sending repeated status checks to dead agents or waiting indefinitely.
 
 ### Monitoring Rules (both modes)
 
@@ -168,24 +204,26 @@ After bootstrap, continue with the rest of RECON.
 - Before sending non-urgent messages to an agent, check its outputs directory:
   - Has `.complete` → agent finished, no need to send
   - Has `contract-ack.md` but no `.complete` → agent is working
-  - No `contract-ack.md` → agent may still be starting up
+  - No `contract-ack.md` → agent may still be starting up (or stale — check startup health first)
 - Only send messages proactively for: blocker responses, timeout checks, wave completion info
 - Avoid sending unnecessary status queries that inflate agent context
 
 ### Agent Respawn (both modes)
 
-If `TaskOutput` times out or an agent stops responding (inspired by VibeHQ hot respawn):
+If `TaskOutput` times out (after `agent_timeout_minutes` from config, default: 30) or an agent stops responding (inspired by VibeHQ hot respawn):
 
 1. Check outputs directory:
    - Has `.complete` → agent finished, no action needed
    - Has `manifest.md` but no `.complete` → partial completion
-   - No outputs at all → startup failure
-2. For partial completion or startup failure:
+   - No outputs at all → startup failure (see Stale Agent Recovery above)
+2. For partial completion (if `respawn_enabled` from config is true):
    a. Read `manifest.md` (if exists) to identify completed tasks
    b. Create respawn persona: original persona + "Tasks #X, #Y already completed by predecessor"
    c. Spawn replacement agent to continue remaining tasks
    d. Log respawn event to `.claude/squad/state/respawn-log.md`
-3. Limits: max 1 respawn per task. If respawn also fails → pause for user.
+3. Limits: `max_respawns_per_task` from config (default: 1). If respawn limit reached:
+   - If `fallback_to_direct` is true: Chief of Staff executes the failed agent's remaining tasks directly. Other healthy agents continue normally.
+   - If `fallback_to_direct` is false: pause and ask the user.
 
 ### Completion (both modes)
 

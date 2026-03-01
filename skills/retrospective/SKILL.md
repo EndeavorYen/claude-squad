@@ -47,6 +47,14 @@ Analyze the mission across four dimensions:
 - Was the merge order correct? Did any merge fail because of ordering issues?
 - Did convoy mode (if used) effectively reduce context pressure?
 
+### 6. Resilience (韌性)
+
+- Were any agents stale at startup (no `contract-ack.md` within timeout)? How many?
+- Did respawn succeed? If not, what was the likely root cause?
+- Was fallback-to-direct-execution used? How did it affect mission quality and timing?
+- Did any agent disconnect mid-execution (runtime timeout)? What was the recovery outcome?
+- Were the resilience config values (`startup_timeout_minutes`, `max_respawns_per_task`) appropriate, or should they be adjusted for this project?
+
 ## Knowledge Base Updates
 
 After reflection, update these files. **Create the file if it doesn't exist.**
@@ -109,6 +117,9 @@ Append mission metrics:
 - Integration conflicts: {count}
 - Auto-fixed issues: {count}
 - Context compaction events: {count}
+- Stale agents detected: {count}
+- Respawn attempts: {count} (success: {count})
+- Fallback to direct execution: {yes|no}
 - Baseline regression: {yes|no}
 - New tools created: {count}
 - Role patterns recorded: {count}

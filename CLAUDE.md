@@ -133,6 +133,20 @@ claude-squad/
 | Contract 機制 | contract-ack.md（開工前寫、INTEGRATE 時驗） | 防止 agent 越界修改 |
 | Convoy 部署 | 5+ agents 或 3+ waves 時分批部署 | 避免同時 spawn 太多 agent 導致資源爭搶 |
 
+## 已知問題與對策
+
+### Agent Stale After Deployment（v0.2 已修復）
+
+**症狀：** Agent 透過 `Task` tool 部署後，在 team config 中顯示 `backendType: "in-process"` 但完全不執行任何工作。`.claude/squad/outputs/` 為空，`SendMessage` 無回應。
+
+**根因：** `Task` tool 成功將 agent 註冊到 team config，但 agent process 從未啟動。屬於 experimental agent teams API 的已知不穩定行為。靜默失敗——沒有錯誤訊號。
+
+**對策（已實作）：**
+1. **Startup health check** — 部署後 3 分鐘內檢查 `contract-ack.md`（agent 的存活證明）
+2. **Respawn** — Stale agent 自動重新部署一次
+3. **Fallback to direct execution** — 若 respawn 仍失敗，Chief of Staff 接手直接執行所有任務
+4. **Role-forging 強化** — agent persona 中明確標注 `contract-ack.md` 為最優先動作，包含存活警告
+
 ## 注意事項
 
 - **需要 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 環境變數** 才能使用 TeamCreate 等 API

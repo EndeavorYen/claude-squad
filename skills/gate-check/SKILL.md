@@ -137,6 +137,8 @@ Accept and complete? (yes / no / fix)
 
 7. **Verification regression** — if VERIFY detects new failures that were not in the pre-flight baseline, pause regardless of gate level. Present the baseline comparison showing exactly which failures are new.
 
+8. **Direct execution fallback** — if the Chief of Staff executed any tasks directly due to agent deployment failure (stale agents that could not be respawned), pause after EXECUTE regardless of gate level. The user should review the directly-executed work since it lacked the normal agent isolation and contract-ack safeguards.
+
 When an override triggers a pause, prepend the summary with:
 
 ```

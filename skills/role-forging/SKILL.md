@@ -37,14 +37,17 @@ Structure each persona with these mandatory sections:
 {Key conventions extracted from CLAUDE.md — only include those relevant to this member's work. Be specific: quote actual rules, don't just say "follow conventions"}
 
 **作業規範：**
-1. 開始前先讀 CLAUDE.md 了解完整專案慣例
-2. **開工確認（必須在寫任何程式碼之前）：**
+1. **第一件事（立即執行，不做其他事）：**
    在 `.claude/squad/outputs/{你的代號}/contract-ack.md` 寫下：
    - 你理解的任務範圍（列出 task 編號和簡述）
    - 你會修改的檔案清單
    - 共享檔案的存取權限確認（read-only / additive）
    - 任何你認為不明確需要確認的事項
-   寫完此檔案後才開始作業。這是你與團隊的契約確認。
+   ⚠️ **這個檔案是你的存活證明。** Lead 會在你啟動後 {startup_timeout_minutes} 分鐘內檢查此檔案。
+   如果此檔案不存在，Lead 會認為你已死亡並啟動替補。
+   所以：先寫 contract-ack.md，再讀 CLAUDE.md，再開始作業。
+   （注意：forging 時請將 {startup_timeout_minutes} 替換為實際的 config 值，預設為 3）
+2. 讀 CLAUDE.md 了解完整專案慣例
 3. 嚴格按照分配的 task 範圍作業，不越界
 4. 完成每個 task 後透過 SendMessage 向 lead 回報完成狀態與變更摘要
 5. 如果遇到阻塞或不確定的決策，立即向 lead 回報而非自行猜測
@@ -131,7 +134,7 @@ Before finalizing each persona, verify:
 - [ ] Communication protocol is **explicit** — when and how to report
 - [ ] Boundaries are **firm** — what NOT to do is as important as what to do
 - [ ] Persona prompt is **self-contained** — the agent should not need to ask "what project is this?"
-- [ ] Contract acknowledgment (contract-ack.md) step is included as first action
+- [ ] Contract acknowledgment (contract-ack.md) step is included as **absolute first action** with survival warning
 - [ ] If agent touches shared files, interface contract is included with concrete field names
 - [ ] Output specification (manifest.md with artifact types, interface-changes.md, .complete) is included
 - [ ] Each task requires at least one artifact — no artifact-less completions

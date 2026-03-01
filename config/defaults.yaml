@@ -36,6 +36,8 @@ resilience:
   respawn_enabled: true        # Auto-respawn agents that disconnect
   max_respawns_per_task: 1     # Maximum respawn attempts per task
   agent_timeout_minutes: 30    # Minutes before considering an agent unresponsive
+  startup_timeout_minutes: 3   # Minutes to wait for contract-ack.md before declaring agent stale
+  fallback_to_direct: true     # If all respawns fail, Chief of Staff executes tasks directly
 
 # Lint exclusion patterns (applied automatically during VERIFY)
 lint_exclusions:
