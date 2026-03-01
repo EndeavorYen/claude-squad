@@ -20,6 +20,38 @@ For each deliverable, determine:
 
 Draw the dependency graph mentally. If A depends on B, they must be sequential. If A and C are independent, they can be parallel.
 
+## Step 2.5: Assess Shared State & Isolation Strategy
+
+### Shared State Analysis
+
+1. List all files each agent's tasks will touch (read or modify)
+2. Identify **shared files** — files touched by 2+ agents
+3. For each shared file, classify each agent's access:
+   - **read-only**: agent reads but does not modify
+   - **additive**: agent adds new fields/exports/types (compatible changes)
+   - **mutative**: agent modifies existing structure (breaking changes)
+4. Build a conflict risk matrix:
+   - Two agents both read-only → **no risk**
+   - One additive + one read-only → **low risk**
+   - Two agents both additive → **medium risk** (needs interface contract in role-forging)
+   - Any mutative access → **high risk** (consider merging into one agent or establishing strict ownership)
+
+### Isolation Strategy
+
+For each squad member, assign an isolation strategy:
+
+| Strategy | When to Use | Implications |
+|----------|------------|--------------|
+| **worktree** | Agent modifies code files not touched by other agents | Agent works in git worktree. INTEGRATE merges back. |
+| **file-boundary** | Multiple agents in main workspace, each with exclusive file ownership | No worktree. Agent's persona lists exactly which files they own. |
+| **none** | Agent only reads code or produces standalone documents | No isolation needed. Outputs go directly to target paths. |
+
+Rules:
+- If an agent's modified files have zero overlap with other agents → `worktree`
+- If an agent shares workspace with others but files can be exclusively assigned → `file-boundary`
+- If an agent only outputs docs/plans that don't overlap → `none`
+- If two agents must both write to the same file → **do not give both worktrees**. Use file-boundary with one agent owning the file, and include the interface contract in the other agent's persona.
+
 ## Step 3: Size Tasks
 
 Each task must be:
@@ -54,6 +86,23 @@ Rules of thumb:
 
 Consider model selection: use `sonnet` for straightforward implementation, `opus` for tasks requiring complex architectural reasoning, `haiku` for simple mechanical tasks.
 
+## Step 5.5: Plan Deployment & Merge Strategy
+
+### Deployment Mode
+
+- **Full deployment** (default): All agents spawn simultaneously. Use when squad size ≤ 4 and there are ≤ 2 dependency waves.
+- **Convoy mode** (required for large squads): Agents deploy in waves matching the dependency graph. Use when squad size ≥ 5 OR there are 3+ dependency waves.
+
+In convoy mode, Wave 2 agents' personas should include `interface-changes.md` content from Wave 1 agents (if relevant).
+
+### Merge Strategy
+
+Document the planned merge approach:
+- List all shared files and their assigned owners
+- Specify merge order (wave-based: Wave 1 agents first)
+- For additive shared files: specify the interface contract (what each agent is allowed to add)
+- Flag high-risk conflicts that may need manual resolution in INTEGRATE
+
 ## Output Format
 
 Present the plan in this structure:
@@ -71,10 +120,21 @@ Present the plan in this structure:
 執行策略：
 Wave 1 (並行): #1, #2
 Wave 2 (等待 Wave 1): #3, #4
+部署模式：{full | convoy}
 
 編組：
-• Alpha — {Forged role}: 負責 #1, #3
-• Bravo — {Forged role}: 負責 #2, #4
+• Alpha — {Forged role}: 負責 #1, #3 | 隔離: {worktree | file-boundary | none}
+• Bravo — {Forged role}: 負責 #2, #4 | 隔離: {worktree | file-boundary | none}
+
+共享狀態：
+• {shared file path}
+  - {Agent}: {read-only | additive | mutative}（{具體描述}）
+  - 衝突風險：{低 | 中 | 高}
+
+合併策略：
+• 合併順序：{按 wave 順序}
+• 預期衝突：{N} 個檔案
+• 處理方式：{additive merge / manual resolution / single owner}
 
 驗證標準：
 - {specific command}: {expected result}
