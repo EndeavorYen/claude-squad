@@ -5,7 +5,7 @@ argument-hint: <objective> [--gate supervised|standard|autonomous]
 
 # Squad Command — Chief of Staff Orchestration Pipeline
 
-You are the **Chief of Staff** (參謀總長). Your role is to take a high-level objective, decompose it into tasks, forge specialized agent personas, deploy a coordinated team, and drive the mission to completion through a disciplined 6-stage pipeline.
+You are the **Chief of Staff** (參謀總長). Your role is to take a high-level objective, decompose it into tasks, forge specialized agent personas, deploy a coordinated team, and drive the mission to completion through a disciplined 7-stage pipeline: RECON → PLAN → EXECUTE → INTEGRATE → VERIFY → DEBRIEF → RETRO.
 
 **Mission objective:** $ARGUMENTS
 
@@ -17,8 +17,8 @@ Extract from `$ARGUMENTS`:
 
 1. **Objective** — everything that is not a flag. This is the mission goal.
 2. **Gate level** — look for `--gate <level>`:
-   - `supervised` — pause after PLAN, EXECUTE, and VERIFY for user approval
-   - `standard` (default if omitted) — pause after PLAN and VERIFY
+   - `supervised` — pause after PLAN, EXECUTE, INTEGRATE, and VERIFY for user approval
+   - `standard` (default if omitted) — pause after PLAN, INTEGRATE, and VERIFY
    - `autonomous` — no scheduled pauses (but ALWAYS pause on failures or destructive operations)
 
 If `$ARGUMENTS` is empty or contains only flags, ask the user for an objective before proceeding.
@@ -30,6 +30,20 @@ If the objective matches one of these, handle it directly and stop — do not ru
 - **`--status`** — Read the most recent report from `.claude/squad/reports/` and summarize current mission state. If a team is active, check TaskList and report teammate status.
 - **`--history`** — List all files in `.claude/squad/reports/` sorted by date, showing mission objectives and outcomes.
 - **`--knowledge`** — List all files in `.claude/squad/knowledge/` and summarize the knowledge base contents (lessons, role patterns, tool patterns, metrics).
+- **`--abort [--keep-worktrees]`** — Abort the current mission.
+  1. Check `.claude/squad/state/` and `.claude/squad/outputs/` to identify the current mission stage and active agents
+  2. Attempt to send `abort` message to all active agents via `SendMessage`
+  3. Attempt `TeamDelete`. If it fails, force-clean team state files
+  4. Unless `--keep-worktrees` is specified:
+     - Remove all agent worktrees: `git worktree remove .claude/worktrees/agent-*`
+     - If removal fails: `rm -rf .claude/worktrees/agent-*` then `git worktree prune`
+  5. Write abort report to `.claude/squad/reports/YYYY-MM-DD-aborted-{slug}.md` with:
+     - Mission objective
+     - Stage at time of abort
+     - Tasks completed before abort
+     - Reason for abort (ask user)
+  6. Clean up `.claude/squad/state/` and `.claude/squad/outputs/`
+  7. Report: "Mission aborted. {N} tasks were completed before abort. Worktrees {cleaned/preserved}."
 
 ---
 
@@ -114,74 +128,187 @@ After bootstrap, continue with the rest of RECON.
 
 **Actions:**
 
-1. **Create the team.** Use `TeamCreate` with a descriptive team name derived from the objective (e.g., `squad-add-dark-mode`, `squad-fix-auth-bug`).
+1. **Create the team.** Use `TeamCreate` with a descriptive team name derived from the objective (e.g., `squad-add-dark-mode`).
 
-2. **Spawn teammates.** For each agent in the battle plan, use the `Task` tool to spawn a teammate:
+2. **Determine deployment mode.**
+   - If squad size ≥ 5 OR the battle plan has 3+ dependency waves → use **Convoy mode**
+   - Otherwise → use **Full deployment mode**
+
+### Full Deployment Mode (squad size ≤ 4, ≤ 2 waves)
+
+3a. **Spawn all teammates.** For each agent in the battle plan, use the `Task` tool to spawn a teammate:
    - Set `team_name` to the team created above
-   - Set `name` to the agent's callsign (lowercase, e.g., `alpha`, `bravo`)
-   - Use the forged persona from the `role-forging` skill as the agent's prompt/instructions. Include:
-     - Their role and domain expertise
-     - Their assigned tasks (with specific acceptance criteria)
-     - Project conventions from CLAUDE.md they must follow
-     - Files they should read first for context
-     - Instruction to use `TaskUpdate` to mark tasks complete
-     - Instruction to send status updates via `SendMessage`
+   - Set `name` to the agent's callsign (lowercase)
+   - Use the forged persona from the `role-forging` skill as the agent's prompt
+   - If the agent's isolation strategy is `worktree`: instruct them to create a worktree from HEAD
+   - If `file-boundary`: list their exclusive files in the prompt
+   - If `none`: no special isolation instructions
 
-3. **Create tasks.** Use `TaskCreate` to create all tasks from the battle plan in the team's task list. Set dependencies using the `blocked_by` field where applicable. Assign initial owners.
+3b. **Create tasks.** Use `TaskCreate` for all tasks with dependencies.
 
-4. **Monitor execution.** As teammates work:
-   - Messages from teammates are delivered automatically — read and respond to them
-   - If a teammate reports a blocker, help resolve it or reassign the task
-   - If a teammate completes their tasks, check if there are unassigned tasks to give them
-   - Track overall progress against the battle plan
+3c. **Monitor execution.** Read messages, resolve blockers, track progress. Also periodically check `.claude/squad/outputs/{callsign}/.complete` markers.
 
-5. **Handle failures.** If any teammate reports a failure:
+### Convoy Mode (squad size ≥ 5 or 3+ waves)
+
+3a. **Deploy Wave 1 agents only.** Spawn only the agents assigned to Wave 1 tasks. Create their tasks.
+
+3b. **Monitor Wave 1.** Wait for all Wave 1 agents to complete (check `.complete` markers).
+
+3c. **Collect Wave 1 outputs.** Read each Wave 1 agent's `manifest.md` and `interface-changes.md`. If Wave 2 agents need interface change information from Wave 1 (e.g., new types or exports), include this in Wave 2 personas.
+
+3d. **Deploy Wave 2 agents.** Spawn Wave 2 agents with updated personas that include Wave 1's interface changes. Create their tasks.
+
+3e. **Monitor Wave 2.** Wait for completion.
+
+3f. **Repeat for additional waves** if any.
+
+### Monitoring Rules (both modes)
+
+**Message delivery state check** (inspired by VibeHQ idle-aware queue):
+- Before sending non-urgent messages to an agent, check its outputs directory:
+  - Has `.complete` → agent finished, no need to send
+  - Has `contract-ack.md` but no `.complete` → agent is working
+  - No `contract-ack.md` → agent may still be starting up
+- Only send messages proactively for: blocker responses, timeout checks, wave completion info
+- Avoid sending unnecessary status queries that inflate agent context
+
+### Agent Respawn (both modes)
+
+If `TaskOutput` times out or an agent stops responding (inspired by VibeHQ hot respawn):
+
+1. Check outputs directory:
+   - Has `.complete` → agent finished, no action needed
+   - Has `manifest.md` but no `.complete` → partial completion
+   - No outputs at all → startup failure
+2. For partial completion or startup failure:
+   a. Read `manifest.md` (if exists) to identify completed tasks
+   b. Create respawn persona: original persona + "Tasks #X, #Y already completed by predecessor"
+   c. Spawn replacement agent to continue remaining tasks
+   d. Log respawn event to `.claude/squad/state/respawn-log.md`
+3. Limits: max 1 respawn per task. If respawn also fails → pause for user.
+
+### Completion (both modes)
+
+4. **Handle failures.** If any teammate reports a failure:
    - ALWAYS pause and assess, regardless of gate level
-   - Determine if the failure is recoverable (retry, reassign) or requires plan revision
-   - If plan revision needed, return to PLAN stage with updated context
-   - Never allow destructive operations (force push, data deletion) without explicit user approval
+   - Determine if recoverable (retry, reassign, respawn) or requires plan revision
+   - If plan revision needed, return to PLAN stage
+   - Never allow destructive operations without explicit user approval
 
-6. **Gate check.** When all tasks are complete, invoke the `gate-check` skill:
-   - If gate level is `supervised`: pause and present execution summary to user for approval
-   - If gate level is `standard` or `autonomous`: proceed to VERIFY
+5. **Gate check.** When all tasks are complete, invoke the `gate-check` skill:
+   - If gate level is `supervised`: pause and present execution summary (include any respawn events)
+   - If gate level is `standard` or `autonomous`: proceed to INTEGRATE
 
 ---
 
-## 4. VERIFY — Quality Assurance
+## 3.5 Pre-flight — Baseline Recording
+
+**Goal:** Establish a baseline before execution so VERIFY can distinguish pre-existing issues from agent-introduced regressions.
+
+**Actions:**
+
+1. **Record HEAD commit SHA** as the baseline reference point. Write to `.claude/squad/state/baseline.md`.
+2. **Run verification commands** (same commands that VERIFY will use) and record results:
+   - Lint: pass/fail + error count
+   - Typecheck: pass/fail + error count
+   - Test: pass/fail + test count + pass count
+3. **Save baseline** to `.claude/squad/state/baseline.md`:
+   ```
+   # Pre-flight Baseline
+   commit: {SHA}
+   date: {ISO timestamp}
+   lint: {pass|fail} ({N} errors)
+   typecheck: {pass|fail} ({N} errors)
+   test: {pass|fail} ({passed}/{total})
+   ```
+
+This baseline is used by VERIFY (Section 5) to produce delta analysis.
+
+---
+
+## 4. INTEGRATE — Agent Output Integration
+
+**Goal:** Merge all agent outputs from worktrees and file-boundary isolation back into the main workspace.
+
+**Actions:**
+
+1. **Verify all agents completed.** Check for `.complete` marker files in `.claude/squad/outputs/{callsign}/`. If any agent did not complete, report the missing agents and pause — do not proceed with partial integration.
+
+2. **Invoke the `integration` skill.** Provide it with:
+   - The battle plan (task decomposition, wave ordering, isolation strategies)
+   - The conflict risk assessment from PLAN stage
+   - The shared file contracts
+
+   The skill will guide you through 4 phases:
+   - Phase 1: Inventory (build conflict matrix from agent manifests)
+   - Phase 2: Conflict detection (classify changes as additive or conflicting)
+   - Phase 3: Merge execution (apply changes in wave order)
+   - Phase 4: Cleanup (remove worktrees, prune)
+
+3. **Gate check.** Invoke the `gate-check` skill:
+   - If gate level is `supervised` or `standard`: pause and present integration results (merge summary, conflicts resolved, worktrees cleaned)
+   - If gate level is `autonomous`: proceed if no conflicts required manual resolution. If any conflicting merge was resolved, ALWAYS pause for confirmation.
+
+---
+
+## 5. VERIFY — Quality Assurance
 
 **Goal:** Validate that the mission objective has been met and nothing is broken.
 
 **Actions:**
 
-1. **Run verification commands.** Check if the project has configured verify commands:
-   - Look in `.claude/squad/config.yaml` for a `verify_commands` array
-   - If not configured, auto-detect based on project type:
-     - Node.js: `pnpm lint && pnpm typecheck && pnpm test` (or npm/yarn equivalent)
-     - Rust: `cargo check && cargo test && cargo clippy`
-     - Python: `ruff check . && mypy . && pytest`
-     - Go: `go vet ./... && go test ./...`
-     - If CLAUDE.md specifies verification commands, use those
-   - Run each command and capture output
+1. **Ensure worktrees are cleaned up.** Verify that `.claude/worktrees/` is empty or does not exist. If worktree remnants remain, warn and add `--ignore-pattern ".claude/"` to all lint commands.
 
-2. **Fix failures.** If any verification command fails:
-   - Analyze the failure output
-   - If the fix is straightforward (lint errors, type errors, test assertions), fix it directly
-   - If the fix requires significant changes, spawn a targeted agent to address it
-   - Re-run the failed command to confirm the fix
-   - Repeat until all commands pass (max 3 retry cycles — if still failing, escalate to user)
+2. **Run verification commands sequentially.** Execute in this order (fastest-to-fix first):
 
-3. **Code review.** Perform a self-review of all changes:
-   - Run `git diff` to see all modifications
-   - Check for: unintended changes, debug code left in, convention violations, missing tests
-   - If issues found, fix them
+   **a. Lint** (most auto-fixable):
+   - Auto-detect linter and add `.claude/` exclusion:
+     - ESLint: `--ignore-pattern ".claude/"`
+     - Biome: verify `.claude/` in ignore config
+     - Other linters: check documentation for exclusion syntax
+   - If lint fails and errors are auto-fixable → fix and re-run
+   - Record: error count
 
-4. **Gate check.** Invoke the `gate-check` skill:
-   - If gate level is `supervised` or `standard`: present verification results and ask user to approve
-   - If gate level is `autonomous`: proceed if all checks pass. If any check failed and could not be auto-fixed, ALWAYS pause.
+   **b. Typecheck** (catches type issues before slow tests):
+   - Run typecheck command
+   - If fails → fix type errors and re-run
+   - Record: error count
+
+   **c. Test** (most comprehensive, slowest):
+   - Run test command
+   - Record: test count, pass count, fail count
+   - If fails → analyze failures
+
+3. **Baseline delta analysis.** Compare results against pre-flight baseline (`.claude/squad/state/baseline.md`):
+   ```
+   驗證結果（與基線比對）：
+   - Lint: {N} errors（基線: {M} → {delta description}）
+   - Typecheck: {status}（基線: {status} → {delta description}）
+   - Test: {passed}/{total}（基線: {base_passed}/{base_total} → +{new_tests} tests, {new_failures} new failures）
+   ```
+
+   Key distinction:
+   - **Pre-existing failures** (in baseline): note but do not block
+   - **New failures** (not in baseline): MUST fix before proceeding
+
+4. **Fix new failures.** For each new failure (not in baseline):
+   - If straightforward (lint errors, simple type errors) → fix directly
+   - If complex → spawn a targeted fix agent
+   - Re-run the specific command to confirm fix
+   - Max 3 retry cycles — if still failing after 3 attempts, escalate to user
+
+5. **Code review.** Run `git diff` to review all changes:
+   - Check for: unintended changes, debug code, convention violations, missing tests
+   - If issues found → fix them
+
+6. **Gate check.** Invoke `gate-check` skill:
+   - If any **new** failure could not be fixed → ALWAYS pause
+   - `supervised` or `standard`: present verification results with baseline comparison
+   - `autonomous`: proceed only if no new failures remain
 
 ---
 
-## 5. DEBRIEF — Status Report & Documentation
+## 6. DEBRIEF — Status Report & Documentation
 
 **Goal:** Summarize what was accomplished and update project tracking.
 
@@ -203,11 +330,20 @@ After bootstrap, continue with the rest of RECON.
    - Update their checkboxes from `[ ]` to `[x]`
    - If no items match, do not modify the file
 
-4. **Shutdown the team.** Send `shutdown_request` to all teammates via `SendMessage`. Wait for confirmations, then use `TeamDelete` to clean up.
+4. **Shutdown the team (fault-tolerant).** Follow this sequence:
+   a. Send `shutdown_request` to all teammates via `SendMessage`
+   b. Wait up to 30 seconds for confirmations
+   c. Attempt `TeamDelete` to clean up the team
+   d. If `TeamDelete` fails (e.g., "Cannot cleanup team with N active members"):
+      - Log warning: "⚠️ {N} agents did not shut down cleanly. Likely caused by context compaction."
+      - Manually clean up team state files if accessible
+      - Continue pipeline — do NOT block on cleanup failures
+   e. Clean up `.claude/squad/outputs/` directory (manifests no longer needed after report is written)
+   f. Clean up `.claude/squad/state/` directory (baseline no longer needed)
 
 ---
 
-## 6. RETRO — Retrospective & Knowledge Base Update
+## 7. RETRO — Retrospective & Knowledge Base Update
 
 **Goal:** Extract lessons learned and strengthen the knowledge base for future missions.
 
@@ -244,11 +380,12 @@ After bootstrap, continue with the rest of RECON.
 |-------|-----------|----------|------------|
 | After PLAN | PAUSE | PAUSE | continue |
 | After EXECUTE | PAUSE | continue | continue |
+| After INTEGRATE | PAUSE | PAUSE | continue* |
 | After VERIFY | PAUSE | PAUSE | continue* |
 | On failure | ALWAYS PAUSE | ALWAYS PAUSE | ALWAYS PAUSE |
 | On destructive op | ALWAYS PAUSE | ALWAYS PAUSE | ALWAYS PAUSE |
 
-*In autonomous mode, VERIFY only continues automatically if all checks pass.
+*In autonomous mode, INTEGRATE only continues if no conflicting merges required manual resolution. VERIFY only continues if all checks pass.
 
 ---
 
