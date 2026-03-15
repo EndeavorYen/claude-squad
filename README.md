@@ -1,3 +1,5 @@
+> ⚠️ **Archived** — This plugin has been consolidated into [claude-env](https://github.com/EndeavorYen/claude-env/tree/main/plugins/squad). All future development happens there.
+
 # squad — Self-Evolving Agent Team Orchestrator
 
 Claude Code plugin that dispatches an AI agent squad to plan, execute, verify, and deliver complex development tasks.
