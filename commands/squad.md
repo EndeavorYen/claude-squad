@@ -130,9 +130,22 @@ After bootstrap, continue with the rest of RECON.
 
 **Actions:**
 
-1. **Create the team.** Use `TeamCreate` with a descriptive team name derived from the objective (e.g., `squad-add-dark-mode`).
+1. **Write sentinel file.** Before creating the team, write `.claude/squad/state/active-mission.md` via Bash:
+   ```
+   stage: EXECUTE
+   objective: {the mission objective}
+   started: {ISO timestamp}
+   ```
+   This file signals the stop hook that a mission is active. It will be deleted when the mission completes (end of RETRO) or when `--abort` is called.
 
-2. **Determine deployment mode.**
+2. **Create the team.** Use `TeamCreate` with a descriptive team name derived from the objective (e.g., `squad-add-dark-mode`).
+
+   **After TeamCreate, run environment diagnostics immediately:**
+   - Run `echo $CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` in Bash and report to user: `[SQUAD-DIAG] CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS={value or UNSET}`
+   - If UNSET: **pause and warn the user** — agent Teams API requires this env var. Do not proceed until confirmed.
+   - Announce: `[SQUAD-DIAG] Team created: {team_name}`
+
+3. **Determine deployment mode.**
    - If squad size ≥ 5 OR the battle plan has 3+ dependency waves → use **Convoy mode**
    - Otherwise → use **Full deployment mode**
 
@@ -152,14 +165,30 @@ After bootstrap, continue with the rest of RECON.
    - If `file-boundary`: list their exclusive files in the prompt
    - If `none`: no special isolation instructions
 
+   **After EACH agent Task call, immediately run diagnostics (do not batch — do this per agent):**
+   1. Announce: `[SQUAD-DIAG] Task spawned for {callsign}. Checking immediate response...`
+   2. Run `mkdir -p .claude/squad/outputs/{callsign}` via Bash to ensure the output dir exists.
+   3. Try `TaskOutput` for this agent with a **10-second timeout** (non-blocking). Announce the result:
+      - If returns content: `[SQUAD-DIAG] {callsign} immediate TaskOutput: {first 200 chars}`
+      - If timeout/empty: `[SQUAD-DIAG] {callsign} immediate TaskOutput: no immediate response (normal)`
+      - If error: `[SQUAD-DIAG] {callsign} TaskOutput ERROR: {error message}` ← **stop and report to user if this happens**
+   4. List `.claude/squad/outputs/{callsign}/` via Bash and announce: `[SQUAD-DIAG] {callsign} outputs dir: {contents or empty}`
+
 3b. **Create tasks.** Use `TaskCreate` for all tasks with dependencies.
 
-3c. **Startup health check (CRITICAL — do not skip).** Read `startup_timeout_minutes` from the project's `.claude/squad/config.yaml` (default: 3). Within that timeout after spawning:
-   - For EACH agent, check if `.claude/squad/outputs/{callsign}/contract-ack.md` exists (use Glob or ls).
-   - An agent that has NOT written `contract-ack.md` within the timeout is considered **stale** (startup failure).
-   - This is the most common failure mode: agents register in the team config but never begin execution.
-   - If ANY agent is stale, immediately proceed to the **Stale Agent Recovery** section below.
-   - If ALL agents have written `contract-ack.md`, proceed to monitoring.
+3c. **Startup health check (CRITICAL — do not skip).** Read `startup_timeout_minutes` from the project's `.claude/squad/config.yaml` (default: 3).
+
+   **Active polling health check** — do NOT silently wait. Poll every 60 seconds:
+
+   For each 60-second interval until `startup_timeout_minutes` is reached:
+   - Announce: `[SQUAD-DIAG] Health check pass {N}/{total} ({elapsed}s elapsed):`
+   - For EACH agent, run Bash `ls .claude/squad/outputs/{callsign}/ 2>/dev/null || echo "(empty)"` and announce:
+     `  {callsign}: contract-ack.md {FOUND ✓ | NOT FOUND ✗} — outputs: {ls result}`
+   - Also run Bash `ls .claude/squad/outputs/ 2>/dev/null` and announce all top-level dirs found.
+
+   After `startup_timeout_minutes`:
+   - For each agent WITHOUT `contract-ack.md`: declare **stale** and proceed to Stale Agent Recovery.
+   - For each agent WITH `contract-ack.md`: declare **healthy** and proceed to monitoring.
 
 3d. **Monitor execution.** Read messages, resolve blockers, track progress. Also periodically check `.claude/squad/outputs/{callsign}/.complete` markers.
 
@@ -423,7 +452,10 @@ This baseline is used by VERIFY (Section 5) to produce delta analysis.
    - The skill will create or propose the tool for future missions
    - Only invoke this if there is a clear, concrete gap — do not invoke speculatively
 
-4. **Final summary.** Present to the user:
+4. **Delete sentinel file.** Run via Bash: `rm -f .claude/squad/state/active-mission.md`
+   This signals the stop hook that the mission is complete. After this, stopping the session is safe.
+
+5. **Final summary.** Present to the user:
    - Mission outcome (one line)
    - Key metrics (tasks completed, files changed, verification status)
    - Lessons learned (2-3 bullet points)
